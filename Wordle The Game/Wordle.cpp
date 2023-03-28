@@ -26,6 +26,13 @@ char keyboardLetter[] = {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p',
                          'a', 's' , 'd', 'f', 'g', 'h', 'j', 'k', 'l',
                          'z', 'x', 'c', 'v', 'b', 'n', 'm'};
 
+struct Key{
+    SDL_Rect pos;
+    char letter;
+};
+Key keyboardBox[26];
+bool initKeyboard = 1;
+
 //Some colors
 SDL_Color BLACK = {0, 0, 0};
 SDL_Color WHITE = {254, 254, 254};
@@ -352,7 +359,10 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
         }
 
         SDL_RenderFillRect(renderer, &keyRect);
-
+        if(initKeyboard){
+            keyboardBox[i].pos = keyRect;
+            keyboardBox[i].letter = letter;
+        }
         // Draw the letter inside the button
 
         string letterString = convertToUpper(string() + letter);
@@ -374,6 +384,7 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
             keyRect.y += keyHeight + paddingY;
         }
     }
+    initKeyboard = 0;
 }
 
 //Render win or lose and reveal the secret word
@@ -528,6 +539,25 @@ int main(int argc, char* args[]){
                                 renderText = 1;
                             }
                         }
+                    else if(event.type == SDL_MOUSEBUTTONDOWN){
+                         int x = event.button.x;
+                         int y = event.button.y;
+
+                        // Check if the mouse click is within the bounds of any key on the virtual keyboard
+                        for (int i = 0; i < 26; i++) {
+                            if (x >= keyboardBox[i].pos.x && x < keyboardBox[i].pos.x + keyboardBox[i].pos.w &&
+                                y >= keyboardBox[i].pos.y && y < keyboardBox[i].pos.y + keyboardBox[i].pos.h) {
+                                // Render the pressed letter to the screen
+                                if(enter && win != 3) doneText = inputText;
+                                if((int)inputText.length() < fixedMaxLength){
+                                    inputText += keyboardBox[i].letter;
+                                    enter = 0;
+                                    renderText = 1;
+                                }
+                                break; // exit the loop once a key has been pressed
+                            }
+                        }
+                    }
                 }
                 //Check renderText flag to render all of the game's features
                 if(renderText){
