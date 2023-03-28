@@ -555,3 +555,31 @@
 	<algorithm>
 	"lTexture.h"
 
+1679999619 source:c:\users\admin\documents\github\wordle\wordle the game\ltexture.cpp
+	"lTexture.h"
+	<SDL.h>
+	<SDL_image.h>
+	<SDL_ttf.h>
+	<string>
+	<iostream>
+
+1679716157 c:\users\admin\documents\github\wordle\wordle the game\ltexture.h
+	<SDL.h>
+	<SDL_image.h>
+	<SDL_ttf.h>
+	<string>
+
+1679999701 source:c:\users\admin\documents\github\wordle\wordle the game\wordle.cpp
+	<SDL.h>
+	<SDL_image.h>
+	<SDL_ttf.h>
+	<iostream>
+	<string>
+	<fstream>
+	<vector>
+	<map>
+	<ctime>
+	<stdlib.h>
+	<algorithm>
+	"lTexture.h"
+
