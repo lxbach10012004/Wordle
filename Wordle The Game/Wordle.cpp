@@ -31,6 +31,7 @@ struct Key{
     char letter;
 };
 Key keyboardBox[26];
+SDL_Rect Enter, BackSpace;
 bool initKeyboard = 1;
 
 //Some colors
@@ -354,7 +355,7 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
         }
         else{
             //Render a blank button in gray-white
-            SDL_SetRenderDrawColor(renderer, 210, 210, 210, 255);
+            SDL_SetRenderDrawColor(renderer, 211, 214, 218, 255);
             color = 0;
         }
 
@@ -380,10 +381,18 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
             keyRect.y += keyHeight + paddingY;
         }
         else if(letter == 'l'){
-            keyRect.x = (WindowSizeW - 7 * keyWidth - 6 * paddingX) / 2;
+            keyRect.x = startX + keyWidth / 2;
             keyRect.y += keyHeight + paddingY;
+            if(initKeyboard) Enter = keyRect;
+            keyRect.x = (WindowSizeW - 7 * keyWidth - 6 * paddingX) / 2;
+
         }
     }
+    if(initKeyboard) BackSpace = keyRect;
+    SDL_Texture* ent = SDL_CreateTextureFromSurface(gRenderer, IMG_Load("Images/enter.png"));
+    SDL_Texture* bsp = SDL_CreateTextureFromSurface(gRenderer, IMG_Load("Images/bspace.png"));
+    SDL_RenderCopy(gRenderer, ent, NULL, &Enter);
+    SDL_RenderCopy(gRenderer, bsp, NULL, &BackSpace);
     initKeyboard = 0;
 }
 
@@ -507,6 +516,7 @@ int main(int argc, char* args[]){
 
                     //The game is played over or the user clicks 'X' button
                     if(event.type == SDL_QUIT){
+                        close();
                         return 0;
                     }
 
@@ -527,7 +537,6 @@ int main(int argc, char* args[]){
                                 inputText.pop_back();
                                 renderText = 1;
                             }
-
                         }
 
                     //Receive text input
@@ -539,14 +548,32 @@ int main(int argc, char* args[]){
                                 renderText = 1;
                             }
                         }
-                    else if(event.type == SDL_MOUSEBUTTONDOWN){
-                         int x = event.button.x;
-                         int y = event.button.y;
 
-                        // Check if the mouse click is within the bounds of any key on the virtual keyboard
-                        for (int i = 0; i < 26; i++) {
+                    //Receive mouse input
+                    else if(event.type == SDL_MOUSEBUTTONDOWN){
+                        int x = event.button.x;
+                        int y = event.button.y;
+
+                        //Check click enter
+                        if(x >= Enter.x && x < Enter.x + Enter.w && y >= Enter.y && y < Enter.y + Enter.h){
+                            enter = 1;
+                            renderText = 1;
+                        }
+
+                        //Check click backspace
+                        else if(x >= BackSpace.x && x < BackSpace.x + BackSpace.w && y >= BackSpace.y && y < BackSpace.y + BackSpace.h){
+                            if((int)inputText.length() > fixedMinLength){
+                                inputText.pop_back();
+                                reset();
+                                renderText = 1;
+                            }
+                        }
+
+                        // Check if the mouse click is within the bounds of any letter on the virtual keyboard
+                        else for (int i = 0; i < 26; i++) {
                             if (x >= keyboardBox[i].pos.x && x < keyboardBox[i].pos.x + keyboardBox[i].pos.w &&
-                                y >= keyboardBox[i].pos.y && y < keyboardBox[i].pos.y + keyboardBox[i].pos.h) {
+                                y >= keyboardBox[i].pos.y && y < keyboardBox[i].pos.y + keyboardBox[i].pos.h){
+
                                 // Render the pressed letter to the screen
                                 if(enter && win != 3) doneText = inputText;
                                 if((int)inputText.length() < fixedMaxLength){
@@ -559,6 +586,7 @@ int main(int argc, char* args[]){
                         }
                     }
                 }
+
                 //Check renderText flag to render all of the game's features
                 if(renderText){
 
@@ -567,7 +595,7 @@ int main(int argc, char* args[]){
                     int startX = (WindowSizeW - (numBlocks * (blockSize + blockSpacing))) / 2;
                     int startY = WindowSizeH / 5;
 
-                    //Render the whole word again everytime the user press a button
+                    //Render the whole word
                     for(int i = 0; i < (int)inputText.length(); i++){
                         int x = (int)inputText[i] - int('A') - 32;
                         int charWidth, charHeight;
@@ -577,15 +605,18 @@ int main(int argc, char* args[]){
 
                         lettersBlack[x].render(currentX, currentY, NULL);
                         col++;
+
                         //Render check-color box for the substring that has been checked
                         check(doneText, row, secretWords, allGuesses, res, 0);
 
                         //Endline
                         if (col == numBlocks){
                             col = 0;
+
                             //Render check-color box for the newly input word only if pressing ENTER
                             if(enter && inputText.length() % 5 == 0 && row == (int)inputText.length() / 5 - 1){
                                 win = check(inputText, row, secretWords, allGuesses, res, 1);
+
                                 //If win or lose
                                 if(win == 1 || win == 2)
                                     quit = 1;
@@ -599,6 +630,7 @@ int main(int argc, char* args[]){
                             row++;
                         }
                     }
+
                     //Render the keyboard and update the screen
                     renderKeyboard(gRenderer, res);
                     SDL_RenderPresent(gRenderer);
