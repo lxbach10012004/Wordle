@@ -113,7 +113,7 @@ bool init(){
     else{
         if( !SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) )
 		{
-			printf( "Warning: Linear texture filtering not enabled!" );
+			cout << "Warning: Linear texture filtering not enabled!\n";
 		}
 
         gWindow = SDL_CreateWindow("Wordle", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowSizeW, WindowSizeH, SDL_WINDOW_SHOWN);
