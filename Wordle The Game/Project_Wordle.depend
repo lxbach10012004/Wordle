@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1679999619 source:c:\users\admin\documents\github\wordle\wordle the game\ltexture.cpp
+1681353406 source:c:\users\admin\documents\github\wordle\wordle the game\ltexture.cpp
 	"lTexture.h"
 	<SDL.h>
 	<SDL_image.h>
@@ -413,7 +413,7 @@
 	"begin_code.h"
 	"close_code.h"
 
-1680078926 source:c:\users\admin\documents\github\wordle\wordle the game\wordle.cpp
+1681533080 source:c:\users\admin\documents\github\wordle\wordle the game\wordle.cpp
 	<SDL.h>
 	<SDL_image.h>
 	<SDL_ttf.h>

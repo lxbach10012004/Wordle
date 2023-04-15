@@ -31,7 +31,7 @@ struct Key{
     char letter;
 };
 Key keyboardBox[26];
-SDL_Rect Enter, BackSpace;
+SDL_Rect Enter, BackSpace, GiveUp = {WindowSizeW - 130, 100, 60, 217};
 bool initKeyboard = 1;
 
 //Some colors
@@ -50,7 +50,7 @@ TTF_Font* gFont = NULL;
 //Store some words texture
 lTexture lettersBlack[26];
 lTexture lettersWhite[26];
-lTexture youWin, youLose, theLetterWas, numberOfGuesses, pressPlayAgain, startingScreen, pressAnyToStart;
+lTexture youWin, youLose, theLetterWas, numberOfGuesses, pressPlayAgain, startingScreen, pressAnyToStart, title, giveUp;
 
 //Load words from text file used to generate secret words
 void questions(vector<string> &hidden){
@@ -150,7 +150,11 @@ bool init(){
 //Load some medias
 bool loadMedia(){
     bool success = 1;
+
+    title.loadFromFile("Images/title.png");
+    giveUp.loadFromFile("Images/GiveUp.png");
     //Open Font
+    TTF_SetFontHinting(gFont, TTF_HINTING_NORMAL);
     gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 40);
     if(gFont == NULL){
         cout << "Failed to open font: " << TTF_GetError() << endl;
@@ -246,6 +250,8 @@ void reset(){
     SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 0);
     SDL_RenderClear(gRenderer);
     drawGrid();
+    title.render(0, 0, NULL);
+    giveUp.render(WindowSizeW - 130, 100, NULL);
 }
 
 //Draw gray, yellow or green boxes
@@ -315,7 +321,7 @@ int check(const string inputString, int row, string secretWord, vector<string> a
         int x = (int)currentWord[i] - int('A') - 32;
         int charWidth, charHeight;
         TTF_SizeText(gFont, string(1, currentWord[i]).c_str(), &charWidth, &charHeight);
-        int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2;
+        int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2 - 4;
 
         lettersWhite[x].render(currentX, y, NULL);
         col++;
@@ -367,7 +373,7 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
         // Draw the letter inside the button
 
         string letterString = convertToUpper(string() + letter);
-        SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, letterString.c_str(), (color == 1)? WHITE:BLACK);
+        SDL_Surface* textSurface = TTF_RenderText_Blended(gFont, letterString.c_str(), (color == 1)? WHITE:BLACK);
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
         SDL_Rect textRect = { keyRect.x + keyWidth / 2 - textSurface->w / 2, keyRect.y + keyHeight / 2 - textSurface->h / 2, textSurface->w, textSurface->h };
         SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
@@ -418,7 +424,7 @@ bool renderResult(int win, const string &secretWords, int numGuess){
         numberGuesses += string(1, x);
         numberOfGuesses.loadFromText(numberGuesses, BLACK);
         TTF_SizeText(gFont, numberGuesses.c_str(), &charWidth, &charHeight);
-        numberOfGuesses.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 2 * charHeight, NULL);
+        numberOfGuesses.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 4 * charHeight, NULL);
     }
     //If lose
     else if(win == 2){
@@ -426,9 +432,9 @@ bool renderResult(int win, const string &secretWords, int numGuess){
         youLose.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2, NULL);
     }
     //Show the secret letter
-    theLetterWas.loadFromText("THE SECRET WORD WAS: " + convertToUpper(secretWords), BLACK);
-    TTF_SizeText(gFont, ("THE SECRET WORD WAS: " + convertToUpper(secretWords)).c_str(), &charWidth, &charHeight);
-    theLetterWas.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 4 * charHeight, NULL);
+    theLetterWas.loadFromText("'" + convertToUpper(secretWords) + "'", RED);
+    TTF_SizeText(gFont, ("'" + convertToUpper(secretWords) + "'").c_str(), &charWidth, &charHeight);
+    theLetterWas.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 2 * charHeight, NULL);
 
     //Ask to play again
     TTF_SizeText(gFont, playAgain.c_str(), &charWidth, &charHeight);
@@ -488,9 +494,7 @@ int main(int argc, char* args[]){
             int win = 0;
 
             //First interface
-            SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
-            SDL_RenderClear(gRenderer);
-            drawGrid();
+            reset();
             renderKeyboard(gRenderer, res);
             SDL_RenderPresent(gRenderer);
 
@@ -525,6 +529,12 @@ int main(int argc, char* args[]){
 
                             //Clear screen
                             reset();
+
+                            //Give up
+                            if(event.key.keysym.sym == SDLK_ESCAPE){
+                                win = 2;
+                                quit = 1;
+                            }
 
                             //Trigger enter flag
                             if(event.key.keysym.sym == SDLK_RETURN){
@@ -570,18 +580,24 @@ int main(int argc, char* args[]){
                         }
 
                         // Check if the mouse click is within the bounds of any letter on the virtual keyboard
-                        else for (int i = 0; i < 26; i++) {
-                            if (x >= keyboardBox[i].pos.x && x < keyboardBox[i].pos.x + keyboardBox[i].pos.w &&
-                                y >= keyboardBox[i].pos.y && y < keyboardBox[i].pos.y + keyboardBox[i].pos.h){
+                        else{
+                            if(x >= WindowSizeW - 130 && x < WindowSizeW - 9 && y >= 100 && y <= 100 + 45){
+                                win = 2;
+                                quit = 1;
+                            }
+                            else for (int i = 0; i < 26; i++) {
+                                if (x >= keyboardBox[i].pos.x && x < keyboardBox[i].pos.x + keyboardBox[i].pos.w &&
+                                    y >= keyboardBox[i].pos.y && y < keyboardBox[i].pos.y + keyboardBox[i].pos.h){
 
-                                // Render the pressed letter to the screen
-                                if(enter && win != 3) doneText = inputText;
-                                if((int)inputText.length() < fixedMaxLength){
-                                    inputText += keyboardBox[i].letter;
-                                    enter = 0;
-                                    renderText = 1;
+                                    // Render the pressed letter to the screen
+                                    if(enter && win != 3) doneText = inputText;
+                                    if((int)inputText.length() < fixedMaxLength){
+                                        inputText += keyboardBox[i].letter;
+                                        enter = 0;
+                                        renderText = 1;
+                                    }
+                                    break; // exit the loop once a key has been pressed
                                 }
-                                break; // exit the loop once a key has been pressed
                             }
                         }
                     }
@@ -600,7 +616,7 @@ int main(int argc, char* args[]){
                         int x = (int)inputText[i] - int('A') - 32;
                         int charWidth, charHeight;
                         TTF_SizeText(gFont, string(1, inputText[i]).c_str(), &charWidth, &charHeight);
-                        int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2;
+                        int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2 - 4;
                         int currentY = startY + row * (blockSize + blockSpacing);
 
                         lettersBlack[x].render(currentX, currentY, NULL);

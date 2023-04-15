@@ -62,7 +62,7 @@ bool lTexture::loadFromFile(string path){
 bool lTexture::loadFromText(string text, SDL_Color textColor){
     free();
     bool success = 1;
-    SDL_Surface* loadedText = TTF_RenderText_Solid(gFont, text.c_str(), textColor);
+    SDL_Surface* loadedText = TTF_RenderText_Blended(gFont, text.c_str(), textColor);
     if(loadedText == NULL){
         cout << "Failed to load from text: " << TTF_GetError() << endl;
         success = 0;
