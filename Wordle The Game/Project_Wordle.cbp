@@ -35,12 +35,14 @@
 			<Add directory="DevFiles/SDL2/include/SDL2" />
 			<Add directory="DevFiles/SDL2_Image/include/SDL2" />
 			<Add directory="DevFiles/SDL2_TTF/include/SDL2" />
+			<Add directory="DevFiles/SDL2_Mixer/include/SDL2" />
 		</Compiler>
 		<Linker>
-			<Add option="-lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf" />
+			<Add option="-lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer" />
 			<Add directory="DevFiles/SDL2/lib" />
 			<Add directory="DevFiles/SDL2_Image/lib" />
 			<Add directory="DevFiles/SDL2_TTF/lib" />
+			<Add directory="DevFiles/SDL2_Mixer/lib" />
 		</Linker>
 		<Unit filename="Wordle.cpp" />
 		<Unit filename="lTexture.cpp" />

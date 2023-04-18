@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -46,6 +47,11 @@ SDL_Color RED = {200, 0, 0};
 SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 TTF_Font* gFont = NULL;
+Mix_Music* backgroundMusic = NULL;
+Mix_Chunk* clickEff = NULL;
+Mix_Chunk* loseEff = NULL;
+Mix_Chunk* winEff = NULL;
+Mix_Chunk* win2Eff = NULL;
 
 //Store some words texture
 lTexture lettersBlack[26];
@@ -106,7 +112,8 @@ string convertToUpper(string words){
 //Initialize SDL, IMG and TTF
 bool init(){
     bool success = 1;
-    if(SDL_Init(SDL_INIT_VIDEO) < 0){
+    //Init SDL
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0){
         cout << "Failed to init SDL: " << SDL_GetError() << endl;
         success = 0;
     }
@@ -115,7 +122,7 @@ bool init(){
 		{
 			cout << "Warning: Linear texture filtering not enabled!\n";
 		}
-
+        //Create window
         gWindow = SDL_CreateWindow("Wordle", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowSizeW, WindowSizeH, SDL_WINDOW_SHOWN);
         if(gWindow == NULL){
             cout << "Failed to create window: " << SDL_GetError() << endl;
@@ -131,15 +138,24 @@ bool init(){
                 SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
                 SDL_RenderClear(gRenderer);
 
+                //Init SDL_IMG
                 int imgFlag = IMG_INIT_PNG;
                 if(!(imgFlag & IMG_Init(imgFlag))){
                     cout << "Failed to init IMG: " << IMG_GetError() << endl;
                     success = 0;
                 }
 
+                //Init SDL_TTF
                 if(TTF_Init() == -1){
                     cout << "Failed to init TTF: " << TTF_GetError() << endl;
                     success = 0;
+                }
+
+                //Init SDL_MIX
+                if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 )
+                {
+                    printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+                    success = false;
                 }
             }
         }
@@ -179,6 +195,42 @@ bool loadMedia(){
     //Load start screen
     startingScreen.loadFromFile("Images/instructions.png");
 
+    //Load Audio
+    backgroundMusic = Mix_LoadMUS("Audio/FunnyMusicBackground.wav");
+    if( backgroundMusic == NULL )
+    {
+        cout << "Failed to load beat music! SDL_mixer Error: " << Mix_GetError();
+        success = false;
+    }
+
+    clickEff = Mix_LoadWAV("Audio/click.wav");
+    if( clickEff == NULL )
+    {
+        cout << "Failed to load beat music! SDL_mixer Error: " << Mix_GetError();
+        success = false;
+    }
+
+    loseEff = Mix_LoadWAV("Audio/lose.wav");
+    if( loseEff == NULL )
+    {
+        cout << "Failed to load beat music! SDL_mixer Error: " << Mix_GetError();
+        success = false;
+    }
+
+    winEff = Mix_LoadWAV("Audio/win.wav");
+    if( winEff == NULL )
+    {
+        cout << "Failed to load beat music! SDL_mixer Error: " << Mix_GetError();
+        success = false;
+    }
+
+    win2Eff = Mix_LoadWAV("Audio/win2.wav");
+    if( win2Eff == NULL )
+    {
+        cout << "Failed to load beat music! SDL_mixer Error: " << Mix_GetError();
+        success = false;
+    }
+
     return success;
 }
 
@@ -194,6 +246,18 @@ void close(){
     delete &youWin;
     delete &theLetterWas;
     delete &pressPlayAgain;
+
+
+    Mix_FreeMusic(backgroundMusic);
+    Mix_FreeChunk(clickEff);
+    Mix_FreeChunk(loseEff);
+    Mix_FreeChunk(winEff);
+    Mix_FreeChunk(win2Eff);
+    backgroundMusic = NULL;
+    clickEff = NULL;
+    loseEff = NULL;
+    winEff = NULL;
+    win2Eff = NULL;
 
     //Destroy everything
     TTF_CloseFont(gFont);
@@ -404,6 +468,7 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
 
 //Render win or lose and reveal the secret word
 bool renderResult(int win, const string &secretWords, int numGuess){
+    Mix_PauseMusic();
     int charWidth, charHeight;
     string uWin = "YOU WIN!", uLose = "YOU LOSE!", playAgain = "DO YOU WANT TO PLAY AGAIN? (Y/N)";
     //Darken the screen
@@ -425,11 +490,13 @@ bool renderResult(int win, const string &secretWords, int numGuess){
         numberOfGuesses.loadFromText(numberGuesses, BLACK);
         TTF_SizeText(gFont, numberGuesses.c_str(), &charWidth, &charHeight);
         numberOfGuesses.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 4 * charHeight, NULL);
+        Mix_PlayChannel(-1, winEff, 0);
     }
     //If lose
     else if(win == 2){
         TTF_SizeText(gFont, uLose.c_str(), &charWidth, &charHeight);
         youLose.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2, NULL);
+        Mix_PlayChannel(-1, loseEff, 0);
     }
     //Show the secret letter
     theLetterWas.loadFromText("'" + convertToUpper(secretWords) + "'", RED);
@@ -457,6 +524,7 @@ bool renderResult(int win, const string &secretWords, int numGuess){
             }
         }
     }
+    Mix_ResumeMusic();
     return 1;
 }
 
@@ -510,8 +578,12 @@ int main(int argc, char* args[]){
             int fixedMinLength = 0;
             int fixedMaxLength = 5;
 
+            //Start music
+            Mix_PlayMusic(backgroundMusic, -1);
+
             //Main loop
             while(!quit){
+
                 //Flag to decide whether to render the text or not
                 bool renderText = 0;
 
@@ -526,6 +598,7 @@ int main(int argc, char* args[]){
 
                     //Whenever the user press a button
                     else if(event.type == SDL_KEYDOWN){
+
 
                             //Clear screen
                             reset();
@@ -605,7 +678,7 @@ int main(int argc, char* args[]){
 
                 //Check renderText flag to render all of the game's features
                 if(renderText){
-
+                    Mix_PlayChannel(-1, clickEff, 0);
                     //Variables to track current rendering position
                     int row = 0, col = 0;
                     int startX = (WindowSizeW - (numBlocks * (blockSize + blockSpacing))) / 2;

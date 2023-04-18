@@ -413,10 +413,11 @@
 	"begin_code.h"
 	"close_code.h"
 
-1681533080 source:c:\users\admin\documents\github\wordle\wordle the game\wordle.cpp
+1681804135 source:c:\users\admin\documents\github\wordle\wordle the game\wordle.cpp
 	<SDL.h>
 	<SDL_image.h>
 	<SDL_ttf.h>
+	<SDL_mixer.h>
 	<iostream>
 	<string>
 	<fstream>
@@ -426,4 +427,20 @@
 	<stdlib.h>
 	<algorithm>
 	"lTexture.h"
+
+1657287999 c:\users\admin\documents\github\wordle\wordle the game\devfiles\sdl2_mixer\include\sdl2\sdl_mixer.h
+	"SDL_stdinc.h"
+	"SDL_rwops.h"
+	"SDL_audio.h"
+	"SDL_endian.h"
+	"SDL_version.h"
+	"begin_code.h"
+	"close_code.h"
+
+1647233680 source:c:\users\admin\documents\github\wordle\wordle the game\21_sound_effects_and_music\21_sound_effects_and_music.cpp
+	<SDL.h>
+	<SDL_image.h>
+	<SDL_mixer.h>
+	<stdio.h>
+	<string>
 
