@@ -56,7 +56,7 @@ Mix_Chunk* win2Eff = NULL;
 //Store some words texture
 lTexture lettersBlack[26];
 lTexture lettersWhite[26];
-lTexture youWin, youLose, theLetterWas, numberOfGuesses, pressPlayAgain, startingScreen, pressAnyToStart, title, giveUp;
+lTexture youWin, youLose, theLetterWas, numberOfGuesses, pressPlayAgain, startingScreen, pressAnyToStart, title, giveUp, YESBOX, NOBOX;
 
 //Load words from text file used to generate secret words
 void questions(vector<string> &hidden){
@@ -186,11 +186,14 @@ bool loadMedia(){
         }
     }
     //Load some sentences
+    YESBOX.loadFromText("YES", BLACK);
+    NOBOX.loadFromText("NO", BLACK);
     gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 28);
     youWin.loadFromText("YOU WIN!", BLACK);
     youLose.loadFromText("YOU LOSE!", BLACK);
     pressPlayAgain.loadFromText("DO YOU WANT TO PLAY AGAIN? (Y/N)", BLACK);
     pressAnyToStart.loadFromText("Press Any Key To Start", RED);
+
 
     //Load start screen
     startingScreen.loadFromFile("Images/instructions.png");
@@ -466,6 +469,22 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
     initKeyboard = 0;
 }
 
+
+//Draw Yes/No Box
+void drawYesNo(SDL_Rect Yes, SDL_Rect No){
+    SDL_SetRenderDrawColor(gRenderer, 0, 255, 0, 255);
+    SDL_RenderFillRect(gRenderer, &Yes);
+    SDL_SetRenderDrawColor(gRenderer, 255, 0, 0, 255);
+    SDL_RenderFillRect(gRenderer, &No);
+    int charWidth, charHeight;
+    string y = "YES";
+    string n = "NO";
+    TTF_SizeText(gFont, y.c_str(), &charWidth, &charHeight);
+    YESBOX.render(Yes.x + (Yes.w - charWidth) / 2 - 10, Yes.y + (Yes.h - charHeight) / 2 - 10, NULL);
+    TTF_SizeText(gFont, n.c_str(), &charWidth, &charHeight);
+    NOBOX.render(No.x + (No.w - charWidth) / 2 - 10, No.y + (No.h - charHeight) / 2 - 10, NULL);
+    SDL_RenderPresent(gRenderer);
+}
 //Render win or lose and reveal the secret word
 bool renderResult(int win, const string &secretWords, int numGuess){
     Mix_PauseMusic();
@@ -509,23 +528,43 @@ bool renderResult(int win, const string &secretWords, int numGuess){
     SDL_RenderPresent(gRenderer);
     bool quit = false;
     SDL_Event event;
+    int boxW = WindowSizeW / 4;
+    int boxH = WindowSizeW / 6;
+    SDL_Rect Yes = {WindowSizeW / 5, 3 * WindowSizeH / 4, boxW,  boxH};
+    SDL_Rect No = {WindowSizeW - WindowSizeW / 5 - boxW, 3 * WindowSizeH / 4, boxW,  boxH};
+    bool replay;
+    drawYesNo(Yes, No);
     while(quit == false){
         while(SDL_PollEvent(&event)){
             if(event.type == SDL_QUIT) quit = true;
+            else if(event.type == SDL_MOUSEBUTTONDOWN){
+                int x = event.button.x;
+                int y = event.button.y;
+                if(x >= Yes.x && x <= Yes.x + Yes.w && y >= Yes.y && y <= Yes.y + Yes.y + Yes.h){
+                    replay = 1;
+                    quit = 1;
+                }
+                else if(x >= No.x && x <= No.x + No.w && y >= No.y && y <= No.y + No.y + No.h){
+                    replay = 0;
+                    quit = 1;
+                }
+            }
             else if(event.type == SDL_KEYDOWN){
                 switch(event.key.keysym.sym){
                 case SDLK_y:
-                    return 1;
+                    replay = 1;
+                    quit = 1;
                     break;
                 case SDLK_n:
-                    return 0;
+                    replay = 0;
+                    quit = 1;
                     break;
                 }
             }
         }
     }
     Mix_ResumeMusic();
-    return 1;
+    return replay;
 }
 
 //Main function
