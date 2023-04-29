@@ -1,0 +1,12 @@
+phone
+chair
+table
+clock
+money
+knife
+plate
+light
+stone
+photo
+radio
+shelf

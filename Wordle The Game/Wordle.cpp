@@ -14,11 +14,11 @@
 using namespace std;
 
 //Window Size
-const int WindowSizeW = 600;
-const int WindowSizeH = 800;
+const int WindowSizeW = 1536;
+const int WindowSizeH = 864;
 
 //Letter blocks settings
-int blockSize = 60;
+int blockSize = 70;
 int blockSpacing = 5;
 int numBlocks = 5;
 
@@ -56,7 +56,11 @@ Mix_Chunk* win2Eff = NULL;
 //Store some words texture
 lTexture lettersBlack[26];
 lTexture lettersWhite[26];
-lTexture youWin, youLose, theLetterWas, numberOfGuesses, pressPlayAgain, startingScreen, pressAnyToStart, title, giveUp, YESBOX, NOBOX;
+lTexture youWin, youLose, theLetterWas, numberOfGuesses, pressPlayAgain, startingScreen, pressAnyToStart;
+lTexture backdrop, WIN, LOSE;
+
+SDL_Cursor* defaultCursor;
+SDL_Cursor* clickCursor;
 
 //Load words from text file used to generate secret words
 void questions(vector<string> &hidden){
@@ -123,7 +127,8 @@ bool init(){
 			cout << "Warning: Linear texture filtering not enabled!\n";
 		}
         //Create window
-        gWindow = SDL_CreateWindow("Wordle", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowSizeW, WindowSizeH, SDL_WINDOW_SHOWN);
+        gWindow = SDL_CreateWindow("Wordle", 0, 0, WindowSizeW, WindowSizeH, SDL_WINDOW_SHOWN);
+//        SDL_SetWindowFullscreen(gWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
         if(gWindow == NULL){
             cout << "Failed to create window: " << SDL_GetError() << endl;
             success = 0;
@@ -167,8 +172,14 @@ bool init(){
 bool loadMedia(){
     bool success = 1;
 
-    title.loadFromFile("Images/title.png");
-    giveUp.loadFromFile("Images/GiveUp.png");
+    SDL_Surface* cursorSurface = IMG_Load("Images/cursor1.png");
+    defaultCursor = SDL_CreateColorCursor(cursorSurface, 8, 3);
+    SDL_SetCursor(defaultCursor);
+    SDL_FreeSurface(cursorSurface);
+
+    backdrop.loadFromFile("Images/GamePic.png");
+    WIN.loadFromFile("Images/win.png");
+    LOSE.loadFromFile("Images/lose.png");
     //Open Font
     TTF_SetFontHinting(gFont, TTF_HINTING_NORMAL);
     gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 40);
@@ -186,17 +197,10 @@ bool loadMedia(){
         }
     }
     //Load some sentences
-    YESBOX.loadFromText("YES", BLACK);
-    NOBOX.loadFromText("NO", BLACK);
-    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 28);
+    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Bold.ttf", 64);
     youWin.loadFromText("YOU WIN!", BLACK);
     youLose.loadFromText("YOU LOSE!", BLACK);
-    pressPlayAgain.loadFromText("DO YOU WANT TO PLAY AGAIN? (Y/N)", BLACK);
-    pressAnyToStart.loadFromText("Press Any Key To Start", RED);
-
-
-    //Load start screen
-    startingScreen.loadFromFile("Images/instructions.png");
+    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 28);
 
     //Load Audio
     backgroundMusic = Mix_LoadMUS("Audio/FunnyMusicBackground.wav");
@@ -276,24 +280,361 @@ void close(){
     SDL_Quit();
 }
 
-//Starting screen
-void renderStartingScreen(){
-    SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
-    SDL_RenderClear(gRenderer);
-    startingScreen.render((WindowSizeW - startingScreen.getWidth()) / 2, 50, NULL);
-    int charWidth, charHeight;
-    TTF_SizeText(gFont, string("Press Any Key To Start").c_str(), &charWidth, &charHeight);
-    pressAnyToStart.render((WindowSizeW - charWidth) / 2, WindowSizeH - 150, NULL);
-    SDL_RenderPresent(gRenderer);
-    SDL_Event e;
+
+int renderMainMenu() {
+    int num_frames = 31;
+    SDL_Texture* textures[num_frames];
+    for(int i = 1; i < 22; i++) {
+        std::string filename = "Videos/MainMenuIn/scene" + std::to_string(i + 4) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    int fps = 30;
+    int length = 5;
+
+    const int SCREEN_TICKS_PER_FRAME = 1000 / fps;
+    Uint32 frame_start_time = SDL_GetTicks();
     bool quit = 0;
+
+    for(int i = 1; i < 22; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+    SDL_Rect startGame = {732, 260, 481, 107};
+    SDL_Rect howToPlay = {732, 409, 481, 107};
+    SDL_Rect quitButton = {732, 546, 481, 107};
+    quit = 0;
+    SDL_Event event;
+    int retVal;
     while(!quit){
-        while(SDL_PollEvent(&e)){
-            if(e.type == SDL_QUIT || e.type == SDL_KEYDOWN)
-                quit = 1;
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_QUIT) quit = 1;
+            else if(event.type == SDL_MOUSEBUTTONDOWN){
+                Mix_PlayChannel(-1, clickEff, 0);
+                int x = event.button.x;
+                int y = event.button.y;
+                if(x >= startGame.x && x <= startGame.x + startGame.w && y >= startGame.y && y <= startGame.y + startGame.h){
+                    retVal = 1;
+                    quit = 1;
+                }
+                else if(x >= howToPlay.x && x <= howToPlay.x + howToPlay.w && y >= howToPlay.y && y <= howToPlay.y + howToPlay.h){
+                    retVal = 2;
+                    quit = 1;
+                }
+                else if(x >= quitButton.x && x <= quitButton.x + quitButton.w && y >= quitButton.y && y <= quitButton.y + quitButton.h){
+                    retVal = 3;
+                    quit = 1;
+                }
+            }
         }
     }
+
+    for(int i = 5; i < 23; i++) {
+        std::string filename = "Videos/MainMenuOut/scene" + std::to_string(i) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    quit = 0;
+    for(int i = 5; i < 23; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+    return retVal;
 }
+
+int renderChooseTopic(){
+    int num_frames = 31;
+    SDL_Texture* textures[num_frames];
+    for(int i = num_frames - 1; i > 0; i--) {
+        std::string filename = "Videos/ChooseTopicIn/scene" + std::to_string(i) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[num_frames - i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    int fps = 30;
+    int length = 5;
+
+    const int SCREEN_TICKS_PER_FRAME = 1000 / fps;
+    Uint32 frame_start_time = SDL_GetTicks();
+    bool quit = 0;
+
+    for(int i = 1; i < num_frames; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+    SDL_Rect startGame = {740, 187, 501, 110};
+    SDL_Rect howToPlay = {740, 338, 418, 110};
+    SDL_Rect quitButton = {740, 492, 399, 110};
+    SDL_Rect backButton = {25, 29, 230, 96};
+    quit = 0;
+    SDL_Event event;
+    int retVal;
+    while(!quit){
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_QUIT) quit = 1;
+            else if(event.type == SDL_MOUSEBUTTONDOWN){
+                Mix_PlayChannel(-1, clickEff, 0);
+                int x = event.button.x;
+                int y = event.button.y;
+                if(x >= startGame.x && x <= startGame.x + startGame.w && y >= startGame.y && y <= startGame.y + startGame.h){
+                    retVal = 1;
+                    quit = 1;
+                }
+                else if(x >= howToPlay.x && x <= howToPlay.x + howToPlay.w && y >= howToPlay.y && y <= howToPlay.y + howToPlay.h){
+                    retVal = 2;
+                    quit = 1;
+                }
+                else if(x >= quitButton.x && x <= quitButton.x + quitButton.w && y >= quitButton.y && y <= quitButton.y + quitButton.h){
+                    retVal = 3;
+                    quit = 1;
+                }
+                else if(x >= backButton.x && x <= backButton.x + backButton.w && y >= backButton.y && y <= backButton.y + backButton.h){
+                    retVal = 4;
+                    quit = 1;
+                }
+            }
+        }
+    }
+
+    for(int i = 1; i < num_frames; i++) {
+        std::string filename = "Videos/ChooseTopicOut/scene" + std::to_string(i) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    quit = 0;
+    for(int i = 1; i < num_frames; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+    return retVal;
+}
+
+void renderHowToPlay(){
+    int num_frames = 31;
+    SDL_Texture* textures[num_frames];
+    for(int i = 1; i < num_frames; i++) {
+        std::string filename = "Videos/HowToPlayIn/scene" + std::to_string(i) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    int fps = 30;
+    int length = 5;
+
+    const int SCREEN_TICKS_PER_FRAME = 1000 / fps;
+    Uint32 frame_start_time = SDL_GetTicks();
+    bool quit = 0;
+
+    for(int i = 1; i < num_frames; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+    SDL_Rect backButton = {25, 29, 230, 96};
+    quit = 0;
+    SDL_Event event;
+
+    while(!quit){
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_QUIT) quit = 1;
+            else if(event.type == SDL_MOUSEBUTTONDOWN){
+                Mix_PlayChannel(-1, clickEff, 0);
+                int x = event.button.x;
+                int y = event.button.y;
+                if(x >= backButton.x && x <= backButton.x + backButton.w && y >= backButton.y && y <= backButton.y + backButton.h){
+                    quit = 1;
+                }
+            }
+        }
+    }
+
+    for(int i = 1; i < num_frames; i++) {
+        std::string filename = "Videos/HowToPlayOut/scene" + std::to_string(i) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    quit = 0;
+    for(int i = 1; i < num_frames; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+    return;
+}
+
+void renderGameIn(){
+    int num_frames = 46;
+    SDL_Texture* textures[num_frames];
+    for(int i = 1; i < num_frames; i++) {
+        std::string filename = "Videos/GameIn/scene" + std::to_string(i) + ".png";
+        SDL_Surface* surface = IMG_Load(filename.c_str());
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        SDL_FreeSurface(surface);
+    }
+    int fps = 30;
+    int length = 5;
+
+    const int SCREEN_TICKS_PER_FRAME = 1000 / fps;
+    Uint32 frame_start_time = SDL_GetTicks();
+    bool quit = 0;
+
+    for(int i = 1; i < num_frames; i++) {
+        // process events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+        if(quit)
+            break;
+
+        // render the frame
+        SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, textures[i], nullptr, nullptr);
+        SDL_RenderPresent(gRenderer);
+
+        // delay to control the frame rate
+        Uint32 frame_time = SDL_GetTicks() - frame_start_time;
+        if (frame_time < SCREEN_TICKS_PER_FRAME) {
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frame_time);
+        }
+
+        frame_start_time = SDL_GetTicks();
+    }
+
+    return;
+}
+
 
 //Draw 5x6 box grid
 void drawGrid(){
@@ -316,9 +657,7 @@ void drawGrid(){
 void reset(){
     SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 0);
     SDL_RenderClear(gRenderer);
-    drawGrid();
-    title.render(0, 0, NULL);
-    giveUp.render(WindowSizeW - 130, 100, NULL);
+    backdrop.render(0, 0, NULL);
 }
 
 //Draw gray, yellow or green boxes
@@ -390,7 +729,7 @@ int check(const string inputString, int row, string secretWord, vector<string> a
         TTF_SizeText(gFont, string(1, currentWord[i]).c_str(), &charWidth, &charHeight);
         int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2 - 4;
 
-        lettersWhite[x].render(currentX, y, NULL);
+        lettersWhite[x].render(currentX, y + 6, NULL);
         col++;
     }
     if(count == 5) return 1;
@@ -469,75 +808,56 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
     initKeyboard = 0;
 }
 
-
-//Draw Yes/No Box
-void drawYesNo(SDL_Rect Yes, SDL_Rect No){
-    SDL_SetRenderDrawColor(gRenderer, 0, 255, 0, 255);
-    SDL_RenderFillRect(gRenderer, &Yes);
-    SDL_SetRenderDrawColor(gRenderer, 255, 0, 0, 255);
-    SDL_RenderFillRect(gRenderer, &No);
-    int charWidth, charHeight;
-    string y = "YES";
-    string n = "NO";
-    TTF_SizeText(gFont, y.c_str(), &charWidth, &charHeight);
-    YESBOX.render(Yes.x + (Yes.w - charWidth) / 2 - 10, Yes.y + (Yes.h - charHeight) / 2 - 10, NULL);
-    TTF_SizeText(gFont, n.c_str(), &charWidth, &charHeight);
-    NOBOX.render(No.x + (No.w - charWidth) / 2 - 10, No.y + (No.h - charHeight) / 2 - 10, NULL);
-    SDL_RenderPresent(gRenderer);
-}
 //Render win or lose and reveal the secret word
 bool renderResult(int win, const string &secretWords, int numGuess){
     Mix_PauseMusic();
     int charWidth, charHeight;
+    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Bold.ttf", 64);
     string uWin = "YOU WIN!", uLose = "YOU LOSE!", playAgain = "DO YOU WANT TO PLAY AGAIN? (Y/N)";
     //Darken the screen
     SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 128);
     SDL_Rect rect = {0, 0, WindowSizeW, WindowSizeH};
     SDL_RenderFillRect(gRenderer, &rect);
-    SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_NONE);
-    SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
-    rect = {50, 200, WindowSizeW - 50 * 2, WindowSizeH - 200 * 2};
-    SDL_RenderFillRect(gRenderer, &rect);
+
     //If win
     if(win == 1){
         TTF_SizeText(gFont, uWin.c_str(), &charWidth, &charHeight);
-        youWin.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2, NULL);
+        WIN.render(154, 86, NULL);
+        youWin.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 400) / 2, NULL);
         char x = char(numGuess) + '0';
         string numberGuesses = "NUMBER OF GUESSES: ";
         numberGuesses += string(1, x);
         numberOfGuesses.loadFromText(numberGuesses, BLACK);
         TTF_SizeText(gFont, numberGuesses.c_str(), &charWidth, &charHeight);
-        numberOfGuesses.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 4 * charHeight, NULL);
+        numberOfGuesses.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 400) / 2 + 2.4 * charHeight, NULL);
         Mix_PlayChannel(-1, winEff, 0);
     }
     //If lose
     else if(win == 2){
         TTF_SizeText(gFont, uLose.c_str(), &charWidth, &charHeight);
-        youLose.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2, NULL);
+        LOSE.render(154, 86, NULL);
+        youLose.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 400) / 2, NULL);
         Mix_PlayChannel(-1, loseEff, 0);
     }
     //Show the secret letter
     theLetterWas.loadFromText("'" + convertToUpper(secretWords) + "'", RED);
     TTF_SizeText(gFont, ("'" + convertToUpper(secretWords) + "'").c_str(), &charWidth, &charHeight);
-    theLetterWas.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 2 * charHeight, NULL);
+    theLetterWas.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 400) / 2 + 1.2 * charHeight, NULL);
 
     //Ask to play again
-    TTF_SizeText(gFont, playAgain.c_str(), &charWidth, &charHeight);
-    pressPlayAgain.render((WindowSizeW - charWidth) / 2, (WindowSizeH - 200) / 2 + 6 * charHeight, NULL);
     SDL_RenderPresent(gRenderer);
     bool quit = false;
     SDL_Event event;
-    int boxW = WindowSizeW / 4;
-    int boxH = WindowSizeW / 6;
-    SDL_Rect Yes = {WindowSizeW / 5, 3 * WindowSizeH / 4, boxW,  boxH};
-    SDL_Rect No = {WindowSizeW - WindowSizeW / 5 - boxW, 3 * WindowSizeH / 4, boxW,  boxH};
+
+    SDL_Rect Yes = {401, 565, 332, 178};
+    SDL_Rect No = {808, 565, 332, 178};
     bool replay;
-    drawYesNo(Yes, No);
     while(quit == false){
         while(SDL_PollEvent(&event)){
             if(event.type == SDL_QUIT) quit = true;
             else if(event.type == SDL_MOUSEBUTTONDOWN){
+                Mix_PlayChannel(-1, clickEff, 0);
                 int x = event.button.x;
                 int y = event.button.y;
                 if(x >= Yes.x && x <= Yes.x + Yes.w && y >= Yes.y && y <= Yes.y + Yes.y + Yes.h){
@@ -549,21 +869,10 @@ bool renderResult(int win, const string &secretWords, int numGuess){
                     quit = 1;
                 }
             }
-            else if(event.type == SDL_KEYDOWN){
-                switch(event.key.keysym.sym){
-                case SDLK_y:
-                    replay = 1;
-                    quit = 1;
-                    break;
-                case SDLK_n:
-                    replay = 0;
-                    quit = 1;
-                    break;
-                }
-            }
         }
     }
     Mix_ResumeMusic();
+    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 28);
     return replay;
 }
 
@@ -577,9 +886,33 @@ int main(int argc, char* args[]){
             cout << "Failed in load-media step!\n";
         }
         else{
-            renderStartingScreen();
+            Mix_PlayMusic(backgroundMusic, -1);
+            int x;
 
-            REPLAY:
+            MAINMENU:
+            x = renderMainMenu();
+
+            int y;
+
+            if(x == 1){
+                TOPIC:
+                y = renderChooseTopic();
+                if(y == 4)
+                    goto MAINMENU;
+            }
+            if(x == 2){
+                renderHowToPlay();
+                goto MAINMENU;
+            }
+            if(x == 3){
+                close();
+                return 0;
+            }
+            renderGameIn();
+            backdrop.render(0, 0, NULL);
+            SDL_RenderPresent(gRenderer);
+
+//            REPLAY:
             //Store words
             vector<string> allQuestions;
             vector<string> allGuesses;
@@ -600,11 +933,6 @@ int main(int argc, char* args[]){
             //Win or lose flag
             int win = 0;
 
-            //First interface
-            reset();
-            renderKeyboard(gRenderer, res);
-            SDL_RenderPresent(gRenderer);
-
             //Game control flag and event
             bool quit = 0;
             bool enter = 0;
@@ -617,14 +945,31 @@ int main(int argc, char* args[]){
             int fixedMinLength = 0;
             int fixedMaxLength = 5;
 
-            //Start music
-            Mix_PlayMusic(backgroundMusic, -1);
+            //Create moving background
+            SDL_Texture* backgroundTextures[81];
+
+            for (int i = 1; i < 81; i++)
+            {
+                std::string filename = "Videos/GameLoop/scene" + std::to_string(i) + ".png";
+                SDL_Surface* surf = IMG_Load(filename.c_str());
+                backgroundTextures[i] = SDL_CreateTextureFromSurface(gRenderer, surf);
+                SDL_FreeSurface(surf);
+            }
+
+            int currentImage = 1;
+            const int fps = 30; // frames per second
+            const int frameDelay = 1000 / fps; // milliseconds per frame
+            Uint32 frameStart;
+            int frameTime;
 
             //Main loop
             while(!quit){
 
                 //Flag to decide whether to render the text or not
+                reset();
                 bool renderText = 0;
+                SDL_Rect backButton = {25, 29, 230, 96};
+
 
                 //Waiting for events
                 while(SDL_PollEvent(&event) != 0){
@@ -638,7 +983,7 @@ int main(int argc, char* args[]){
                     //Whenever the user press a button
                     else if(event.type == SDL_KEYDOWN){
 
-
+                            Mix_PlayChannel(-1, clickEff, 0);
                             //Clear screen
                             reset();
 
@@ -673,10 +1018,15 @@ int main(int argc, char* args[]){
 
                     //Receive mouse input
                     else if(event.type == SDL_MOUSEBUTTONDOWN){
+                        Mix_PlayChannel(-1, clickEff, 0);
                         int x = event.button.x;
                         int y = event.button.y;
 
                         //Check click enter
+
+                        if(x >= backButton.x && x <= backButton.x + backButton.w && y >= backButton.y && y <= backButton.y + backButton.h){
+                            goto TOPIC;
+                        }
                         if(x >= Enter.x && x < Enter.x + Enter.w && y >= Enter.y && y < Enter.y + Enter.h){
                             enter = 1;
                             renderText = 1;
@@ -715,62 +1065,82 @@ int main(int argc, char* args[]){
                     }
                 }
 
-                //Check renderText flag to render all of the game's features
-                if(renderText){
-                    Mix_PlayChannel(-1, clickEff, 0);
-                    //Variables to track current rendering position
-                    int row = 0, col = 0;
-                    int startX = (WindowSizeW - (numBlocks * (blockSize + blockSpacing))) / 2;
-                    int startY = WindowSizeH / 5;
+                // Start the frame timer
+                frameStart = SDL_GetTicks();
 
-                    //Render the whole word
-                    for(int i = 0; i < (int)inputText.length(); i++){
-                        int x = (int)inputText[i] - int('A') - 32;
-                        int charWidth, charHeight;
-                        TTF_SizeText(gFont, string(1, inputText[i]).c_str(), &charWidth, &charHeight);
-                        int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2 - 4;
-                        int currentY = startY + row * (blockSize + blockSpacing);
+                // Render the current background image
+                SDL_RenderCopy(gRenderer, backgroundTextures[currentImage], NULL, NULL);
+                drawGrid();
 
-                        lettersBlack[x].render(currentX, currentY, NULL);
-                        col++;
+                // Advance to the next background image
+                currentImage++;
+                if(currentImage == 81)
+                    currentImage = 1;
 
-                        //Render check-color box for the substring that has been checked
-                        check(doneText, row, secretWords, allGuesses, res, 0);
-
-                        //Endline
-                        if (col == numBlocks){
-                            col = 0;
-
-                            //Render check-color box for the newly input word only if pressing ENTER
-                            if(enter && inputText.length() % 5 == 0 && row == (int)inputText.length() / 5 - 1){
-                                win = check(inputText, row, secretWords, allGuesses, res, 1);
-
-                                //If win or lose
-                                if(win == 1 || win == 2)
-                                    quit = 1;
-
-                                //If guess wrong and still have chances, update the min and max length of input text
-                                if(win == 0){
-                                    fixedMinLength = inputText.length();
-                                    fixedMaxLength = fixedMinLength + 5;
-                                }
-                            }
-                            row++;
-                        }
-                    }
-
-                    //Render the keyboard and update the screen
-                    renderKeyboard(gRenderer, res);
-                    SDL_RenderPresent(gRenderer);
+                // Control the frame rate
+                frameTime = SDL_GetTicks() - frameStart;
+                if (frameDelay > frameTime)
+                {
+                    SDL_Delay(frameDelay - frameTime);
                 }
+
+                //Render all of the game's features
+
+                //Variables to track current rendering position
+                int row = 0, col = 0;
+                int startX = (WindowSizeW - (numBlocks * (blockSize + blockSpacing))) / 2;
+                int startY = WindowSizeH / 5 + 6;
+
+                //Render the whole word
+                for(int i = 0; i < (int)inputText.length(); i++){
+                    int x = (int)inputText[i] - int('A') - 32;
+                    int charWidth, charHeight;
+                    TTF_SizeText(gFont, string(1, inputText[i]).c_str(), &charWidth, &charHeight);
+                    int currentX = startX + col * (blockSize + blockSpacing) + (blockSize - charWidth) / 2 - 4;
+                    int currentY = startY + row * (blockSize + blockSpacing);
+
+                    lettersBlack[x].render(currentX, currentY, NULL);
+                    col++;
+
+                    //Render check-color box for the substring that has been checked
+                    check(doneText, row, secretWords, allGuesses, res, 0);
+
+                    //Endline
+                    if (col == numBlocks){
+                        col = 0;
+
+                        //Render check-color box for the newly input word only if pressing ENTER
+                        if(enter && inputText.length() % 5 == 0 && row == (int)inputText.length() / 5 - 1){
+                            win = check(inputText, row, secretWords, allGuesses, res, 1);
+
+                            //If win or lose
+                            if(win == 1 || win == 2)
+                                quit = 1;
+
+                            //If guess wrong and still have chances, update the min and max length of input text
+                            if(win == 0){
+                                fixedMinLength = inputText.length();
+                                fixedMaxLength = fixedMinLength + 5;
+                            }
+                        }
+                        row++;
+                    }
+                }
+
+                //Render the keyboard and update the screen
+                renderKeyboard(gRenderer, res);
+                SDL_RenderPresent(gRenderer);
             }
             SDL_StopTextInput();
 
             //Ask to replay
             int numGuess = (int)inputText.length() / 5;
             bool replay = renderResult(win, secretWords, numGuess);
-            if(replay == 1) goto REPLAY;
-            else quit = 1;
+            if(replay == 1) goto TOPIC;
+            else{
+                quit = 1;
+                goto MAINMENU;
+            }
         }
     }
     close();

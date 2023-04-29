@@ -1,0 +1,15 @@
+apple
+bread
+candy
+cream
+donut
+grape
+honey
+lemon
+mango
+melon
+pasta
+pizza
+sushi
+steak
+salad

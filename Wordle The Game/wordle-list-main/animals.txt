@@ -1,0 +1,12 @@
+camel
+hippo
+horse
+koala
+mouse
+panda
+puppy
+rhino
+sheep
+tiger
+whale
+zebra
