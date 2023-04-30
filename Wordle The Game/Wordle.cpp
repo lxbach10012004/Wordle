@@ -32,7 +32,7 @@ struct Key{
     char letter;
 };
 Key keyboardBox[26];
-SDL_Rect Enter, BackSpace, GiveUp = {WindowSizeW - 130, 100, 60, 217};
+SDL_Rect Enter, BackSpace;
 bool initKeyboard = 1;
 
 //Some colors
@@ -63,12 +63,20 @@ SDL_Cursor* defaultCursor;
 SDL_Cursor* clickCursor;
 
 //Load words from text file used to generate secret words
-void questions(vector<string> &hidden){
+void questions(vector<string> &hidden, int y){
     ifstream questionsFile;
-    questionsFile.open("wordle-list-main/questions.txt");
-    if(!questionsFile.is_open()){
-        cout << "Failed to open questions file!\n";
-        return;
+    switch(y){
+    case 1:
+        questionsFile.open("wordle-list-main/animals.txt");
+        break;
+    case 2:
+        questionsFile.open("wordle-list-main/foods.txt");
+        break;
+    case 3:
+        questionsFile.open("wordle-list-main/items.txt");
+        break;
+    case 5:
+        questionsFile.open("wordle-list-main/questions.txt");
     }
     string inputString;
     while(getline(questionsFile, inputString))
@@ -89,6 +97,27 @@ void possibleGuess(vector<string> &guesses){
     while(getline(guessesFile, inputString))
         guesses.push_back(inputString);
     guessesFile.close();
+    return;
+}
+
+void makeHint(vector<string> &allHints, int y){
+    ifstream questionsFile;
+    switch(y){
+    case 1:
+        questionsFile.open("wordle-list-main/animals-hint.txt");
+        break;
+    case 2:
+        questionsFile.open("wordle-list-main/foods-hint.txt");
+        break;
+    case 3:
+        questionsFile.open("wordle-list-main/items-hint.txt");
+        break;
+    }
+
+    string inputString;
+    while(getline(questionsFile, inputString))
+        allHints.push_back(inputString);
+    questionsFile.close();
     return;
 }
 
@@ -387,12 +416,12 @@ int renderMainMenu() {
 }
 
 int renderChooseTopic(){
-    int num_frames = 31;
+    int num_frames = 33;
     SDL_Texture* textures[num_frames];
-    for(int i = num_frames - 1; i > 0; i--) {
+    for(int i = 1; i < num_frames; i++) {
         std::string filename = "Videos/ChooseTopicIn/scene" + std::to_string(i) + ".png";
         SDL_Surface* surface = IMG_Load(filename.c_str());
-        textures[num_frames - i] = SDL_CreateTextureFromSurface(gRenderer, surface);
+        textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
         SDL_FreeSurface(surface);
     }
     int fps = 30;
@@ -431,6 +460,7 @@ int renderChooseTopic(){
     SDL_Rect howToPlay = {740, 338, 418, 110};
     SDL_Rect quitButton = {740, 492, 399, 110};
     SDL_Rect backButton = {25, 29, 230, 96};
+    SDL_Rect freeButton = {173, 508, 441, 141};
     quit = 0;
     SDL_Event event;
     int retVal;
@@ -457,18 +487,22 @@ int renderChooseTopic(){
                     retVal = 4;
                     quit = 1;
                 }
+                else if(x >= freeButton.x && x <= freeButton.x + freeButton.w && y >= freeButton.y && y <= freeButton.y + freeButton.h){
+                    retVal = 5;
+                    quit = 1;
+                }
             }
         }
     }
 
-    for(int i = 1; i < num_frames; i++) {
+    for(int i = 1; i < 21; i++) {
         std::string filename = "Videos/ChooseTopicOut/scene" + std::to_string(i) + ".png";
         SDL_Surface* surface = IMG_Load(filename.c_str());
         textures[i] = SDL_CreateTextureFromSurface(gRenderer, surface);
         SDL_FreeSurface(surface);
     }
     quit = 0;
-    for(int i = 1; i < num_frames; i++) {
+    for(int i = 1; i < 21; i++) {
         // process events
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -634,7 +668,6 @@ void renderGameIn(){
 
     return;
 }
-
 
 //Draw 5x6 box grid
 void drawGrid(){
@@ -808,6 +841,14 @@ void renderKeyboard(SDL_Renderer* renderer, map<char, int> res) {
     initKeyboard = 0;
 }
 
+void renderHint(string hints){
+    lTexture h;
+    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Bold.ttf", 40);
+    h.loadFromText(hints, RED);
+    h.render(1045, 302, NULL);
+    gFont = TTF_OpenFont("TrueTypeFonts/ClearSans-Medium.ttf", 28);
+}
+
 //Render win or lose and reveal the secret word
 bool renderResult(int win, const string &secretWords, int numGuess){
     Mix_PauseMusic();
@@ -887,10 +928,8 @@ int main(int argc, char* args[]){
         }
         else{
             Mix_PlayMusic(backgroundMusic, -1);
-            int x;
-
             MAINMENU:
-            x = renderMainMenu();
+            int x = renderMainMenu();
 
             int y;
 
@@ -912,17 +951,22 @@ int main(int argc, char* args[]){
             backdrop.render(0, 0, NULL);
             SDL_RenderPresent(gRenderer);
 
-//            REPLAY:
             //Store words
             vector<string> allQuestions;
             vector<string> allGuesses;
-            questions(allQuestions);
+            vector<string> allHints;
+            questions(allQuestions, y);
             possibleGuess(allGuesses);
+            makeHint(allHints, y);
 
             //Random seed and randomize secret word
             srand(time(NULL));
             int index = rand() % allQuestions.size();
             string secretWords = allQuestions[index];
+            string hints;
+            if(y == 5)
+                hints = "Good luck! I dont know:<";
+            else hints = allHints[index];
 //            cout << secretWords;
 
             //Initialize the keyboard for used letters
@@ -936,6 +980,7 @@ int main(int argc, char* args[]){
             //Game control flag and event
             bool quit = 0;
             bool enter = 0;
+            bool requestHint = 0;
             SDL_Event event;
 
             //Start receiving text input
@@ -962,13 +1007,17 @@ int main(int argc, char* args[]){
             Uint32 frameStart;
             int frameTime;
 
+            SDL_Rect backButton = {25, 29, 230, 96};
+            SDL_Rect giveUp = {1271, 31, 190, 90};
+            SDL_Rect hintButton = {1271, 150, 190, 90};
+
             //Main loop
             while(!quit){
 
                 //Flag to decide whether to render the text or not
                 reset();
                 bool renderText = 0;
-                SDL_Rect backButton = {25, 29, 230, 96};
+
 
 
                 //Waiting for events
@@ -1027,9 +1076,16 @@ int main(int argc, char* args[]){
                         if(x >= backButton.x && x <= backButton.x + backButton.w && y >= backButton.y && y <= backButton.y + backButton.h){
                             goto TOPIC;
                         }
-                        if(x >= Enter.x && x < Enter.x + Enter.w && y >= Enter.y && y < Enter.y + Enter.h){
+                        else if(x >= Enter.x && x < Enter.x + Enter.w && y >= Enter.y && y < Enter.y + Enter.h){
                             enter = 1;
                             renderText = 1;
+                        }
+                        else if(x >= giveUp.x && x <= giveUp.x + giveUp.w && y >= giveUp.y && y <= giveUp.y + giveUp.h){
+                            win = 2;
+                            quit = 1;
+                        }
+                        else if(x >= hintButton.x && x <= hintButton.x + hintButton.w && y >= hintButton.y && y <= hintButton.y + hintButton.h){
+                            requestHint = 1;
                         }
 
                         //Check click backspace
@@ -1071,6 +1127,8 @@ int main(int argc, char* args[]){
                 // Render the current background image
                 SDL_RenderCopy(gRenderer, backgroundTextures[currentImage], NULL, NULL);
                 drawGrid();
+                if(requestHint)
+                    renderHint(hints);
 
                 // Advance to the next background image
                 currentImage++;
